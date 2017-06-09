@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Workspace
+   version = "1.0">
+   <FileRef
+      location = "group:tutorial06/tutorial06.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:tutorial05/tutorial05.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:tutorial04/tutorial04.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:tutorial03/tutorial03.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:tutorial02/tutorial02.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:tutorial01/tutorial01.xcodeproj">
+   </FileRef>
+</Workspace>
