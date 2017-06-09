@@ -218,7 +218,6 @@ int audio_decode_frame(VideoState *is, double *pts_ptr) {
             }
             if (got_frame)
             {
-                // 这块关于DataSize的处理是为什么？
                 int size1 = av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
                 int len = swr_convert(t_audio_conv,
                                       out, (MAX_AUDIO_FRAME_SIZE * 3) / 2/is->audio_st->codec->channels/size1,
@@ -349,6 +348,7 @@ void audio_callback(void *userdata, Uint8 *stream, int len) {
                 is->audio_buf_size = 1024;
                 memset(is->audio_buf, 0, is->audio_buf_size);
             } else {
+                //
                 is->audio_buf_size = audio_size;
             }
             is->audio_buf_index = 0;

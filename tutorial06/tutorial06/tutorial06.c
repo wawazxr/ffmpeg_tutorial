@@ -238,8 +238,11 @@ double get_master_clock(VideoState *is) {
         return get_external_clock(is);
     }
 }
-/* Add or subtract samples to get a better sync, return new
- audio buffer size */
+/* 
+ Add or subtract samples to get a better sync,
+ return newaudio buffer size 
+ 
+ */
 int synchronize_audio(VideoState *is, short *samples,
                       int samples_size, double pts) {
     int n;
@@ -253,6 +256,7 @@ int synchronize_audio(VideoState *is, short *samples,
         
         ref_clock = get_master_clock(is);
         diff = get_audio_clock(is) - ref_clock;
+//        printf("audio clock diff = %f \n",diff);
         
         if(diff < AV_NOSYNC_THRESHOLD) {
             // accumulate the diffs
@@ -271,15 +275,18 @@ int synchronize_audio(VideoState *is, short *samples,
                     } else if (wanted_size > max_size) {
                         wanted_size = max_size;
                     }
+                    printf("Audio:wanted_size = %d \n",wanted_size);
                     if(wanted_size < samples_size) {
                         /* remove samples */
                         samples_size = wanted_size;
+                        printf("remove audio samples \n");
                     } else if(wanted_size > samples_size) {
                         uint8_t *samples_end, *q;
                         int nb;
                         
                         /* add samples by copying final sample*/
                         nb = (samples_size - wanted_size);
+                        printf("how much did need add = %d \n",nb);
                         samples_end = (uint8_t *)samples + samples_size - n;
                         q = samples_end + n;
                         while(nb > 0) {
@@ -421,6 +428,7 @@ void audio_callback(void *userdata, Uint8 *stream, int len) {
                 is->audio_buf_size = 1024;
                 memset(is->audio_buf, 0, is->audio_buf_size);
             } else {
+                // 通过控制 audio_size 来决定音频播放的快慢
                 audio_size = synchronize_audio(is, (int16_t *)is->audio_buf,
                                                audio_size, pts);
                 is->audio_buf_size = audio_size;
@@ -473,19 +481,6 @@ void video_display(VideoState *is) {
             aspect_ratio = (float)is->video_st->codec->width /
             (float)is->video_st->codec->height;
         }
-//        h = screen->h;
-//        w = ((int)rint(h * aspect_ratio)) & -3;
-//        if(w > screen->w) {
-//            w = screen->w;
-//            h = ((int)rint(w / aspect_ratio)) & -3;
-//        }
-//        x = (screen->w - w) / 2;
-//        y = (screen->h - h) / 2;
-        
-//        rect.x = x;
-//        rect.y = y;
-//        rect.w = w;
-//        rect.h = h;
         
         int t_window_w = 0;
         int t_window_h = 0;
@@ -511,9 +506,6 @@ void video_display(VideoState *is) {
         SDL_RenderClear( m_pRenderer );
         SDL_RenderCopy( m_pRenderer, m_pSdlTexture,  NULL, &rect);
         SDL_RenderPresent(m_pRenderer);
-        
-        // 渲染AVFrame的数据
-//        SDL_DisplayYUVOverlay(vp->bmp, &rect);
     }
 }
 
@@ -561,7 +553,13 @@ void video_refresh_timer(void *userdata) {
             is->frame_timer += delay;
             /* computer the REAL delay */
             actual_delay = is->frame_timer - (av_gettime() / 1000000.0);
+            /*
+            这两个时间差了 0.01秒，是差在了什么地方了？
+            printf("actual_delay = %f \n",actual_delay);
+            printf("delay = %f \n",delay);
+            */
             if(actual_delay < 0.010) {
+                // 确保 actual_delay 不能为负数
                 /* Really it should skip the picture instead */
                 actual_delay = 0.010;
             }
@@ -734,7 +732,7 @@ double synchronize_video(VideoState *is, AVFrame *src_frame, double pts) {
     frame_delay = av_q2d(is->video_st->codec->time_base);
     /* if we are repeating a frame, adjust clock accordingly */
     frame_delay += src_frame->repeat_pict * (frame_delay * 0.5);
-    is->video_clock += frame_delay;
+    is->video_clock += frame_delay; //  为什么videoClock 需要添加一个time_base
     return pts;
 }
 
@@ -775,6 +773,7 @@ int video_thread(void *arg) {
         // Save global pts to be stored in pFrame in first call
         global_video_pkt_pts = packet->pts;
         // Decode video frame
+        //packet 中的 pts， AVFrame 中的 pkt_pts 是什么区别？
         avcodec_decode_video2(is->video_st->codec, pFrame, &frameFinished,
                               packet);
         if(packet->dts == AV_NOPTS_VALUE
@@ -785,6 +784,7 @@ int video_thread(void *arg) {
         } else {
             pts = 0;
         }
+        // pts  packet->pts * AVStream.tima_base = 510 * 1/24 = 21.25s
         pts *= av_q2d(is->video_st->time_base);
         
         // Did we get a video frame?
@@ -845,10 +845,11 @@ int stream_component_open(VideoState *is, int stream_index) {
             is->audio_buf_index = 0;
             
             /* averaging filter for audio sync */
-            is->audio_diff_avg_coef = exp(log(0.01 / AUDIO_DIFF_AVG_NB));
+            
+            is->audio_diff_avg_coef = exp(log(0.01 / AUDIO_DIFF_AVG_NB)); // 0.0005
             is->audio_diff_avg_count = 0;
             /* Correct audio only if larger error than this */
-            is->audio_diff_threshold = 2.0 * SDL_AUDIO_BUFFER_SIZE / codecCtx->sample_rate;
+            is->audio_diff_threshold = 2.0 * SDL_AUDIO_BUFFER_SIZE / codecCtx->sample_rate; // 0.043
             
             memset(&is->audio_pkt, 0, sizeof(is->audio_pkt));
             packet_queue_init(&is->audioq);
@@ -860,7 +861,7 @@ int stream_component_open(VideoState *is, int stream_index) {
             
             is->frame_timer = (double)av_gettime() / 1000000.0;
             is->frame_last_delay = 40e-3;
-            is->video_current_pts_time = av_gettime();
+            is->video_current_pts_time = av_gettime(); // 初始化
             
             packet_queue_init(&is->videoq);
             is->video_tid = SDL_CreateThread(video_thread, "videoThread",is);
@@ -1063,7 +1064,9 @@ int main(int argc, char *argv[]) {
     
     schedule_refresh(is, 40);
     
-    is->av_sync_type = DEFAULT_AV_SYNC_TYPE;
+    is->av_sync_type = DEFAULT_AV_SYNC_TYPE; // 默认音频同步到视频
+//    is->av_sync_type = AV_SYNC_AUDIO_MASTER;
+//    is->av_sync_type = AV_SYNC_EXTERNAL_MASTER;
     is->parse_tid = SDL_CreateThread(decode_thread,"decode_thread", is);
     if(!is->parse_tid) {
         av_free(is);
