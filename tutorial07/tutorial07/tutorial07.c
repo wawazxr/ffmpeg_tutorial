@@ -10,7 +10,7 @@
 // Use the Makefile to build all the samples.
 //
 // Run using
-// tutorial07 myvideofile.mpg
+// tutorial07 seek
 //
 // to play the video.
 
@@ -806,7 +806,7 @@ int video_thread(void *arg) {
     if(frameFinished) {
       pts = synchronize_video(is, pFrame, pts);
       if(queue_picture(is, pFrame, pts) < 0) {
-	break;
+          break;
       }
     }
     av_free_packet(packet);
