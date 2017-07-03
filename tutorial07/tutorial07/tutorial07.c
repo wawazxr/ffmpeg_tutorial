@@ -471,6 +471,7 @@ int audio_decode_frame(VideoState *is, double *pts_ptr) {
         is->audio_pkt_size = pkt->size;
         /* if update, update the audio clock w/pts */
         if(pkt->pts != AV_NOPTS_VALUE) {
+            // audio AVStream : 1/ 48000
             is->audio_clock = av_q2d(is->audio_st->time_base)*pkt->pts;
         }
     }
@@ -745,6 +746,9 @@ double synchronize_video(VideoState *is, AVFrame *src_frame, double pts) {
         pts = is->video_clock;
     }
     /* update the video clock */
+    /*
+     AVStream AVCodecContext time_base : 1/ 48 , 为什么这里是 codec的time_base
+     */
     frame_delay = av_q2d(is->video_st->codec->time_base);
     /* if we are repeating a frame, adjust clock accordingly */
     frame_delay += src_frame->repeat_pict * (frame_delay * 0.5);
@@ -757,10 +761,11 @@ uint64_t global_video_pkt_pts = AV_NOPTS_VALUE;
 /* These are called whenever we allocate a frame
  * buffer. We use this to store the global_pts in
  * a frame at the time it is allocated.
+ *  在调用此函数avcodec_decode_video2视频解码时 回调会走
  */
 int our_get_buffer(struct AVCodecContext *c, AVFrame *pic) {
     int ret = avcodec_default_get_buffer(c, pic);
-    uint64_t *pts = av_malloc(sizeof(uint64_t));
+    uint64_t *pts = av_malloc(sizeof(uint64_t)); /*使用 int64 来表示 PTS，因为 PTS 是以整型来保存的。这个值是一个 时间戳相当于时间的度量，用流的time_base 为单位进行的时间度量*/
     *pts = global_video_pkt_pts;
     pic->opaque = pts;
     return ret;
@@ -775,7 +780,7 @@ int video_thread(void *arg) {
     AVPacket pkt1, *packet = &pkt1;
     int frameFinished;
     AVFrame *pFrame;
-    double pts;
+    double pts; //
     
     pFrame = av_frame_alloc();
     
@@ -798,13 +803,20 @@ int video_thread(void *arg) {
                               packet);
         if(packet->dts == AV_NOPTS_VALUE
            && pFrame->opaque && *(uint64_t*)pFrame->opaque != AV_NOPTS_VALUE) {
-            pts = *(uint64_t *)pFrame->opaque;
+            pts = *(uint64_t *)pFrame->opaque; //  packet->dts 不存在时,从 opaque中取出packet->pts
         } else if(packet->dts != AV_NOPTS_VALUE) {
             pts = packet->dts;
         } else {
             pts = 0;
         }
+        // AVStream time_base 1/24
         pts *= av_q2d(is->video_st->time_base);
+        
+        /*
+         1.当我们调用 av_read_frame() 得到一个包的时候，PTS 和 DTS 的信息也会保存在包中。
+         2. 但是我们真正想要 的 PTS 是我们刚刚解码出来的原始帧的 PTS，这样我们才能知道什么时候来显示它
+         3. 我们从 avcodec_decode_video2() 函数中得到的帧只是一个 AVFrame，其中并没有包含有用的 PTS 值(注意:AVFrame 确实包含一 个 pts 变量，但并不总是我们得到帧的时候想要的值)
+         */
         
         // Did we get a video frame?
         if(frameFinished) {
@@ -902,6 +914,11 @@ int stream_component_open(VideoState *is, int stream_index) {
              NULL,
              NULL
              );
+            
+            /*
+             * 解码完成后，内部会创建AVFrame，这个函数相当于把内部创建的avframe放在外部来创建 
+             * 作用 通过avframe opaque 参数绑定一个 packet中取出的pts参数
+             */
             codecCtx->get_buffer2 = our_get_buffer;
             codecCtx->release_buffer = our_release_buffer;
             
