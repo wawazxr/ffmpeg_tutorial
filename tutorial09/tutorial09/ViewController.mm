@@ -23,7 +23,7 @@
     // Do any additional setup after loading the view, typically from a nib.
     // 修改为.mm 文件，支持对cpp 函数的调用
     
-    _glesView = [[LECGLESView alloc] initWithFrame:CGRectMake(0, 0, 300, 400)];
+    _glesView = [[LECGLESView alloc] initWithFrame:CGRectMake(0, 40, [UIScreen mainScreen].bounds.size.width, 300)];
     [self.view addSubview:_glesView];
    
 }
