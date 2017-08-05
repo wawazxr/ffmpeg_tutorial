@@ -37,7 +37,6 @@ void SaveFrame(AVFrame *pFrame, int width, int height, int iFrame) {
     FILE *pFile;
     char szFilename[32];
     int  y;
-    
     // Open file
     // 字符串格式化命令，主要功能是把格式化的数据写入某个字符串中。sprintf 是个变参函数。
     sprintf(szFilename, "frame%d.ppm", iFrame);
@@ -48,9 +47,7 @@ void SaveFrame(AVFrame *pFrame, int width, int height, int iFrame) {
     // Write header
     fprintf(pFile, "P6\n%d %d\n255\n", width, height);
     
-    // Write pixel data
-    
-    /*
+    /* Write pixel data
      size_t fwrite(const void* buffer, size_t size, size_t count, FILE* stream);
      注意：这个函数以二进制形式对文件进行操作，不局限于文本文件
      返回值：返回实际写入的数据块数目
@@ -58,13 +55,8 @@ void SaveFrame(AVFrame *pFrame, int width, int height, int iFrame) {
      （2）size：要写入内容的单字节数；
      （3）count:要进行写入size字节的数据项的个数；
      （4）stream:目标文件指针；
-     （5）返回实际写入的数据项个数count。
+     返回值 返回实际写入的数据项个数count。
      */
-    
-    /*
-     
-     */
-    
     for(y=0; y<height; y++)
         fwrite(pFrame->data[0]+y*pFrame->linesize[0], 1, width*3, pFile);
     
@@ -88,8 +80,8 @@ int main(int argc, char *argv[]) {
     struct SwsContext      *sws_ctx = NULL;
     
     // /zjcletv/Desktop/FFmpeg-Learning/FFmpeg-tutorial/40M.mp4
-    //
-    const char * fileName = "/zjcletv/Desktop/FFmpeg-Learning/FFmpeg-tutorial/40M.mp4";
+    // /Users/mac/Desktop/zjcdxzy/github/ffmpeg_tutorial
+    const char * fileName = "/Users/mac/Desktop/zjcdxzy/github/ffmpeg_tutorial/40M.mp4";
     // http://123.126.32.41/yudong/2016/LiveHlsVerimatrix/stream-007/stream-vod-noenc.m3u8
 //    const char * fileName = "http://123.126.32.41/yudong/2016/LiveHlsVerimatrix/stream-007/stream-vod-noenc.m3u8";
     
@@ -98,9 +90,9 @@ int main(int argc, char *argv[]) {
 //        return -1;
 //    }
     // Register all formats and codecs
-    av_register_all(); // import function
     
-    avformat_network_init(); //
+    av_register_all();
+    avformat_network_init(); // 播放流媒体文件时才需要，本地文件不需要
     avcodec_register_all();
     
     av_log(NULL, AV_LOG_INFO, "===== versions =====\n");
@@ -163,18 +155,19 @@ int main(int argc, char *argv[]) {
                                 pCodecCtx->height);
     buffer=(uint8_t *)av_malloc(numBytes*sizeof(uint8_t));
     
-    // 创建一个 SwsContext
-     sws_ctx = sws_getContext(pCodecCtx->width,pCodecCtx->height,pCodecCtx->pix_fmt,
-     pCodecCtx->width,pCodecCtx->height,PIX_FMT_RGB24,
-                   SWS_BILINEAR,
-                   NULL,NULL,NULL
-     );
-    
     // Assign appropriate parts of buffer to image planes in pFrameRGB
     // Note that pFrameRGB is an AVFrame, but AVFrame is a superset
     // of AVPicture
     avpicture_fill((AVPicture *)pFrameRGB, buffer, PIX_FMT_RGB24,
                    pCodecCtx->width, pCodecCtx->height);
+    
+    
+    // 创建一个 SwsContext
+    sws_ctx = sws_getContext(pCodecCtx->width,pCodecCtx->height,pCodecCtx->pix_fmt,
+                             pCodecCtx->width,pCodecCtx->height,PIX_FMT_RGB24,
+                             SWS_BILINEAR,
+                             NULL,NULL,NULL
+                             );
     
     // Read frames and save first five frames to disk
     i=0;
@@ -186,7 +179,7 @@ int main(int argc, char *argv[]) {
                                   &packet);
             
             // Did we get a video frame?
-            if(frameFinished) {
+            if(frameFinished && pFrame->key_frame) {
                 // Convert the image from its native format to RGB
                 sws_scale
                 (
