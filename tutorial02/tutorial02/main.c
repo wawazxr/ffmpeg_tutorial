@@ -47,7 +47,8 @@ int main(int argc, char *argv[]) {
 //        exit(1);
 //    }
     
-    const char * fileName = "/zjcletv/Desktop/FFmpeg-Learning/FFmpeg-tutorial/40M.mp4";
+    const char * fileName = "../../../../40M.mp4";
+    
     
     // Register all formats and codecs
     av_register_all();
@@ -102,7 +103,7 @@ int main(int argc, char *argv[]) {
     // Allocate video frame
     pFrame = av_frame_alloc();
     
-    // Make a screen to put our video
+    //2. create window, Make a screen to put our video
     screen = SDL_CreateWindow(
                               "FFmpeg Tutorial",
                               SDL_WINDOWPOS_UNDEFINED,
@@ -116,14 +117,14 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "SDL: could not create window - exiting\n");
         exit(1);
     }
-    
+    // 3. create Render
     renderer = SDL_CreateRenderer(screen, -1, 0);
     if (!renderer) {
         fprintf(stderr, "SDL: could not create renderer - exiting\n");
         exit(1);
     }
     
-    // Allocate a place to put our YUV image on that screen
+    //4. create texture, Allocate a place to put our YUV image on that screen
     texture = SDL_CreateTexture(
                                 renderer,
                                 SDL_PIXELFORMAT_YV12,
@@ -178,6 +179,7 @@ int main(int argc, char *argv[]) {
                           pFrame->linesize, 0, pCodecCtx->height, pict.data,
                           pict.linesize);
                 
+                // 纹理绘制
                 SDL_UpdateYUVTexture(
                                      texture,
                                      NULL,
@@ -191,6 +193,7 @@ int main(int argc, char *argv[]) {
                 
                 SDL_RenderClear(renderer);
                 SDL_RenderCopy(renderer, texture, NULL, NULL);
+                // 纹理填充到屏幕
                 SDL_RenderPresent(renderer);
                 
             }
